@@ -1,7 +1,15 @@
 streamlit==1.24.0
-openai==0.27.8
-pandas==2.0.2
-ta==0.10.2
-requests==2.31.0
-python-dotenv==1.0.0
-numpy==1.24.3
+openai>=1.0.0
+pandas>=2.0.0
+ta>=0.10.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+numpy>=1.24.0
+matplotlib==3.7.1
+mplfinance==0.12.9b7
+yfinance==0.2.22
+plotly==5.15.0
+ttkthemes==3.2.2
+Pillow>=10.0.0  # For image handling
+tkinterdnd2>=0.3.0  # For drag and drop support
+tk>=8.6  # For themed widgets
