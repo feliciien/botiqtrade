@@ -29,6 +29,9 @@ class TradingAssistant:
         self.root = root
         self.root.title("EUR/USD Trading Assistant 🤖💰")
         
+        # Initialize _after_id
+        self._after_id = None
+        
         # Load user preferences
         self.load_preferences()
         
@@ -628,7 +631,7 @@ Give clear advice (Buy, Sell, or Wait) and explain your reasoning in 1-2 lines. 
             self.status_bar.config(text=f"Error updating market data: {str(e)}")
             
         # Schedule next update in 60 seconds
-        self.root.after(60000, self.update_market_data)
+        self._after_id = self.root.after(60000, self.update_market_data)
 
     def on_submit(self, event=None):
         """Handle question submission"""
