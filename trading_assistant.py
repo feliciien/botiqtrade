@@ -395,28 +395,24 @@ class TradingAssistant:
         widget.bind('<Leave>', leave)
 
     def get_eurusd_price(self):
-        """Fetch EUR/USD price data from ExchangeRate API and simulate short-term data"""
+        """Fetch EUR/USD price data from Frankfurter API and simulate short-term data"""
         try:
-            api_key = self.exchangerate_key or self.exchangerate_entry.get()
-            if not api_key:
-                raise ValueError("ExchangeRate API key is missing. Please enter your API key in the configuration.")
-                
-            url = f"https://v6.exchangerate-api.com/v6/{api_key}/pair/EUR/USD"
+            url = "https://api.frankfurter.app/latest?from=EUR&to=USD"
             try:
                 r = requests.get(url, timeout=10)  # Add timeout
                 data = r.json()
             except requests.exceptions.ConnectionError as e:
-                raise Exception("Failed to connect to ExchangeRate API. Please check your internet connection.") from e
+                raise Exception("Failed to connect to Frankfurter API. Please check your internet connection.") from e
             except requests.exceptions.Timeout:
-                raise Exception("Connection to ExchangeRate API timed out. Please try again.") from e
+                raise Exception("Connection to Frankfurter API timed out. Please try again.") from e
             except requests.exceptions.RequestException as e:
-                raise Exception(f"Error connecting to ExchangeRate API: {str(e)}") from e
+                raise Exception(f"Error connecting to Frankfurter API: {str(e)}") from e
             
-            if 'result' not in data or data['result'] != 'success':
-                error_msg = data.get('error-type', 'Unknown error')
-                raise Exception(f"API Error: {error_msg}. Please verify your API key.")
+            if 'rates' not in data:
+                error_msg = data.get('error', 'Unknown error')
+                raise Exception(f"API Error: {error_msg}")
                 
-            current_rate = data['conversion_rate']
+            current_rate = data['rates']['USD']
             
             # Create simulated price data for technical analysis
             # Generate 100 data points with small random variations around the current price
