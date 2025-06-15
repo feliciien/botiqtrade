@@ -443,16 +443,34 @@ class TradingAssistant:
         macd = MACD(df['close']).macd_diff().iloc[-1]
         return rsi, macd
 
-    def build_prompt(self, user_input, price, rsi, macd):
+    def predict_next_price(self, df, window=20):
+        """
+        Predict the next EUR/USD price using simple linear regression on the last N prices.
+        Returns the predicted price or None if not enough data.
+        """
+        if df.empty or len(df) < window:
+            return None
+        y = df['close'].tail(window).values
+        X = np.arange(window).reshape(-1, 1)
+        # Fit linear regression: price = a * t + b
+        from sklearn.linear_model import LinearRegression
+        model = LinearRegression()
+        model.fit(X, y)
+        next_time = np.array([[window]])
+        next_price = model.predict(next_time)[0]
+        return float(next_price)
+
+    def build_prompt(self, user_input, price, rsi, macd, predicted_price=None):
         """Build the prompt for OpenAI"""
         trend = "Uptrend" if macd > 0 else "Downtrend"
+        pred_str = f"\nPredicted Next Price: {predicted_price:.5f}" if predicted_price is not None else ""
         prompt = f"""
 You are a professional forex trading assistant. Analyze EUR/USD based on the following:
 
 Current Price: {price:.5f}
 RSI: {rsi:.2f}
 MACD: {macd:.2f}
-Trend: {trend}
+Trend: {trend}{pred_str}
 
 User Question: {user_input}
 
@@ -602,6 +620,7 @@ Give clear advice (Buy, Sell, or Wait) and explain your reasoning in 1-2 lines. 
             if not df.empty:
                 last_price = df['close'].iloc[-1]
                 rsi, macd = self.compute_indicators(df)
+                predicted_price = self.predict_next_price(df)
                 
                 # Update labels with colors based on values
                 self.price_label.config(
@@ -618,11 +637,19 @@ Give clear advice (Buy, Sell, or Wait) and explain your reasoning in 1-2 lines. 
                     text=f"MACD: {macd:.2f}",
                     foreground=self.colors['success'] if macd > 0 else self.colors['danger']
                 )
+
+                # Show predicted price in status bar
+                if predicted_price is not None:
+                    self.status_bar.config(
+                        text=f"Last updated: {datetime.now().strftime('%H:%M:%S')} | Predicted Next Price: {predicted_price:.5f}"
+                    )
+                else:
+                    self.status_bar.config(
+                        text=f"Last updated: {datetime.now().strftime('%H:%M:%S')}"
+                    )
                 
                 # Update chart
                 self.update_chart()
-                
-                self.status_bar.config(text=f"Last updated: {datetime.now().strftime('%H:%M:%S')}")
         except Exception as e:
             self.status_bar.config(text=f"Error updating market data: {str(e)}")
             
@@ -644,11 +671,14 @@ Give clear advice (Buy, Sell, or Wait) and explain your reasoning in 1-2 lines. 
             if not df.empty:
                 last_price = df['close'].iloc[-1]
                 rsi, macd = self.compute_indicators(df)
+                predicted_price = self.predict_next_price(df)
                 
-                prompt = self.build_prompt(question, last_price, rsi, macd)
+                prompt = self.build_prompt(question, last_price, rsi, macd, predicted_price)
                 advice = self.get_openai_response(prompt)
                 
                 self.response_text.delete(1.0, tk.END)
+                if predicted_price is not None:
+                    self.response_text.insert(tk.END, f"Model Predicted Next Price: {predicted_price:.5f}\n\n")
                 self.response_text.insert(tk.END, advice)
                 
         finally:
