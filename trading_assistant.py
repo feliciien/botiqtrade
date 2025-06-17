@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from ta.momentum import RSIIndicator
 from ta.trend import MACD
+from ta.volatility import BollingerBands, AverageTrueRange
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timedelta
@@ -463,10 +464,25 @@ class TradingAssistant:
             return float(next_price)
 
         # Compute indicators
-        closes = df['close'].tail(window + 1)
+        closes = df['close'].tail(window + 10)  # More data for indicators
         rsi_series = RSIIndicator(closes).rsi()
         macd_series = MACD(closes).macd_diff()
         sma_series = closes.rolling(window=5).mean()
+
+        # Bollinger Bands
+        bb = BollingerBands(closes, window=5)
+        bb_middle = bb.bollinger_mavg()
+        bb_upper = bb.bollinger_hband()
+        bb_lower = bb.bollinger_lband()
+
+        # ATR (requires high, low, close)
+        # For simulated data, use close as high/low for simplicity
+        atr = AverageTrueRange(high=closes, low=closes, close=closes, window=5).average_true_range()
+
+        # Lagged returns
+        returns_1 = closes.pct_change(1)
+        returns_2 = closes.pct_change(2)
+        returns_3 = closes.pct_change(3)
 
         # Drop initial NaNs
         features_df = pd.DataFrame({
@@ -474,6 +490,13 @@ class TradingAssistant:
             'rsi': rsi_series.values,
             'macd': macd_series.values,
             'sma': sma_series.values,
+            'bb_middle': bb_middle.values,
+            'bb_upper': bb_upper.values,
+            'bb_lower': bb_lower.values,
+            'atr': atr.values,
+            'ret1': returns_1.values,
+            'ret2': returns_2.values,
+            'ret3': returns_3.values,
             'time': np.arange(len(closes))
         }).dropna()
 
@@ -481,16 +504,21 @@ class TradingAssistant:
             return None
 
         # Prepare features and target
-        X = features_df[['time', 'rsi', 'macd', 'sma']].iloc[:-1].values
+        feature_cols = [
+            'time', 'rsi', 'macd', 'sma',
+            'bb_middle', 'bb_upper', 'bb_lower',
+            'atr', 'ret1', 'ret2', 'ret3'
+        ]
+        X = features_df[feature_cols].iloc[:-1].values
         y = features_df['close'].iloc[1:].values  # Predict next close
 
         # Train model
         from sklearn.ensemble import RandomForestRegressor
-        model = RandomForestRegressor(n_estimators=100, random_state=42)
+        model = RandomForestRegressor(n_estimators=200, max_depth=8, random_state=42)
         model.fit(X, y)
 
         # Prepare next feature row
-        last_row = features_df[['time', 'rsi', 'macd', 'sma']].iloc[-1].values.reshape(1, -1)
+        last_row = features_df[feature_cols].iloc[-1].values.reshape(1, -1)
         next_price = model.predict(last_row)[0]
         return float(next_price)
 
