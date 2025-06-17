@@ -445,19 +445,53 @@ class TradingAssistant:
 
     def predict_next_price(self, df, window=20):
         """
-        Predict the next EUR/USD price using simple linear regression on the last N prices.
+        Improved swing trade prediction using RandomForestRegressor and technical indicators.
+        Features: time index, RSI, MACD, SMA.
         Returns the predicted price or None if not enough data.
         """
-        if df.empty or len(df) < window:
+        if df.empty or len(df) < window + 10:
+            # Not enough data for indicators, fallback to linear regression
+            if df.empty or len(df) < window:
+                return None
+            y = df['close'].tail(window).values
+            X = np.arange(window).reshape(-1, 1)
+            from sklearn.linear_model import LinearRegression
+            model = LinearRegression()
+            model.fit(X, y)
+            next_time = np.array([[window]])
+            next_price = model.predict(next_time)[0]
+            return float(next_price)
+
+        # Compute indicators
+        closes = df['close'].tail(window + 1)
+        rsi_series = RSIIndicator(closes).rsi()
+        macd_series = MACD(closes).macd_diff()
+        sma_series = closes.rolling(window=5).mean()
+
+        # Drop initial NaNs
+        features_df = pd.DataFrame({
+            'close': closes.values,
+            'rsi': rsi_series.values,
+            'macd': macd_series.values,
+            'sma': sma_series.values,
+            'time': np.arange(len(closes))
+        }).dropna()
+
+        if len(features_df) < window:
             return None
-        y = df['close'].tail(window).values
-        X = np.arange(window).reshape(-1, 1)
-        # Fit linear regression: price = a * t + b
-        from sklearn.linear_model import LinearRegression
-        model = LinearRegression()
+
+        # Prepare features and target
+        X = features_df[['time', 'rsi', 'macd', 'sma']].iloc[:-1].values
+        y = features_df['close'].iloc[1:].values  # Predict next close
+
+        # Train model
+        from sklearn.ensemble import RandomForestRegressor
+        model = RandomForestRegressor(n_estimators=100, random_state=42)
         model.fit(X, y)
-        next_time = np.array([[window]])
-        next_price = model.predict(next_time)[0]
+
+        # Prepare next feature row
+        last_row = features_df[['time', 'rsi', 'macd', 'sma']].iloc[-1].values.reshape(1, -1)
+        next_price = model.predict(last_row)[0]
         return float(next_price)
 
     def build_prompt(self, user_input, price, rsi, macd, predicted_price=None):
