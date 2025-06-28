@@ -6,18 +6,26 @@ from ta.trend import MACD
 
 def get_btcusd_price():
     url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
-    r = requests.get(url, timeout=10)
-    data = r.json()
-    if 'price' in data:
-        return float(data['price'])
+    try:
+        r = requests.get(url, timeout=10)
+        data = r.json()
+        if 'price' in data:
+            return float(data['price'])
+        print("Binance API response (no price):", data)
+    except Exception as e:
+        print("Error fetching BTCUSD price:", str(e))
     return None
 
 def get_eurusd_price():
     url = "https://api.frankfurter.app/latest?from=EUR&to=USD"
-    r = requests.get(url, timeout=10)
-    data = r.json()
-    if 'rates' in data and 'USD' in data['rates']:
-        return float(data['rates']['USD'])
+    try:
+        r = requests.get(url, timeout=10)
+        data = r.json()
+        if 'rates' in data and 'USD' in data['rates']:
+            return float(data['rates']['USD'])
+        print("Frankfurter API response (no USD):", data)
+    except Exception as e:
+        print("Error fetching EURUSD price:", str(e))
     return None
 
 def get_price_series(symbol):

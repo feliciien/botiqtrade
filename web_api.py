@@ -7,8 +7,21 @@ from flask_cors import CORS
 import pandas as pd
 import os
 
+import traceback
+
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    tb = traceback.format_exc()
+    print("=== ERROR TRACEBACK ===")
+    print(tb)
+    response = {
+        "error": str(e),
+        "traceback": tb
+    }
+    return jsonify(response), 500
 
 def get_btcusd_price():
     url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"

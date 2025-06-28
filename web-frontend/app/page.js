@@ -33,8 +33,8 @@ export default function Home() {
   const [error, setError] = useState("");
   const [showIndicators, setShowIndicators] = useState(true);
 
-  // Set this to your Render backend URL after deployment, e.g. "https://boltiqtrade-backend.onrender.com"
-  const apiBase = "https://boltiqtrade-backend.onrender.com";
+  // Use local Next.js API routes for a fully serverless Vercel deployment
+  const apiBase = "/api";
 
   function getRsiBadge(val) {
     if (val > 70) return <Badge text="Overbought" color="#e53935" />;
@@ -60,7 +60,11 @@ export default function Home() {
       if (data.price) {
         setResult(`Current price for ${symbol}: ${data.price}`);
       } else {
-        setError(data.error || "Error fetching price.");
+        let errorMsg = data.error || "Error fetching price.";
+        if (data.traceback) {
+          errorMsg += "\n\n" + data.traceback;
+        }
+        setError(errorMsg);
       }
     } catch (e) {
       setError("Error connecting to backend.");
@@ -80,7 +84,11 @@ export default function Home() {
       if (data.rsi) {
         setRsi(`Current RSI for ${symbol}: ${data.rsi.toFixed(2)}`);
       } else {
-        setError(data.error || "Error fetching RSI.");
+        let errorMsg = data.error || "Error fetching RSI.";
+        if (data.traceback) {
+          errorMsg += "\n\n" + data.traceback;
+        }
+        setError(errorMsg);
       }
     } catch (e) {
       setError("Error connecting to backend.");
@@ -104,7 +112,11 @@ export default function Home() {
         setAdvice(data.advice);
         setIndicators(data.indicators || null);
       } else {
-        setError(data.error || "Error fetching advice.");
+        let errorMsg = data.error || "Error fetching advice.";
+        if (data.traceback) {
+          errorMsg += "\n\n" + data.traceback;
+        }
+        setError(errorMsg);
       }
     } catch (e) {
       setError("Error connecting to backend.");
