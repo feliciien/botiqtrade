@@ -1,8 +1,6 @@
-flask
-flask-cors
 requests
-pandas
 numpy
+pandas
 ta
 python-dotenv
 openai

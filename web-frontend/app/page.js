@@ -33,7 +33,8 @@ export default function Home() {
   const [error, setError] = useState("");
   const [showIndicators, setShowIndicators] = useState(true);
 
-  const apiBase = "http://127.0.0.1:5000";
+  // Set this to your Render backend URL after deployment, e.g. "https://boltiqtrade-backend.onrender.com"
+  const apiBase = "https://boltiqtrade-backend.onrender.com";
 
   function getRsiBadge(val) {
     if (val > 70) return <Badge text="Overbought" color="#e53935" />;
