@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import "./globals.css";
 
 export default function Home() {
   const [symbol, setSymbol] = useState("BTCUSD");
@@ -70,59 +71,65 @@ export default function Home() {
   }
 
   return (
-    <main style={{ maxWidth: 600, margin: "2rem auto", fontFamily: "sans-serif" }}>
-      <h1>Trading Assistant Web</h1>
-      <div style={{ marginBottom: 16 }}>
-        <label>
-          Symbol:{" "}
-          <select value={symbol} onChange={e => setSymbol(e.target.value)}>
+    <div className="boltiq-container">
+      <div className="boltiq-header">
+        <h1>BoltiqTrade</h1>
+        <p>Your AI-powered trading assistant for BTC/USD & EUR/USD</p>
+      </div>
+      <div className="boltiq-section">
+        <label className="boltiq-label">
+          Symbol:
+          <select
+            className="boltiq-select"
+            value={symbol}
+            onChange={e => setSymbol(e.target.value)}
+          >
             <option value="BTCUSD">BTC/USD</option>
             <option value="EURUSD">EUR/USD</option>
           </select>
         </label>
       </div>
-      <div style={{ marginBottom: 16 }}>
-        <label>
-          Question:{" "}
+      <div className="boltiq-section">
+        <label className="boltiq-label">
+          Question:
           <input
+            className="boltiq-input"
             type="text"
             value={question}
             onChange={e => setQuestion(e.target.value)}
-            style={{ width: 350, maxWidth: "90%" }}
+            style={{ width: 320, maxWidth: "90%" }}
           />
         </label>
       </div>
-      <div style={{ margin: "1rem 0" }}>
-        <button onClick={fetchPrice} disabled={loading} style={{ marginRight: 8 }}>
+      <div className="boltiq-section" style={{ marginBottom: 0 }}>
+        <button className="boltiq-btn" onClick={fetchPrice} disabled={loading}>
           Get Price
         </button>
-        <button onClick={fetchRSI} disabled={loading} style={{ marginRight: 8 }}>
+        <button className="boltiq-btn" onClick={fetchRSI} disabled={loading}>
           Get RSI
         </button>
-        <button onClick={fetchAdvice} disabled={loading}>
+        <button className="boltiq-btn" onClick={fetchAdvice} disabled={loading}>
           Get AI Advice
         </button>
       </div>
-      {loading && <div>Loading...</div>}
-      {result && <div style={{ marginTop: 16, padding: 12, background: "#f0f0f0" }}>{result}</div>}
-      {rsi && <div style={{ marginTop: 8, padding: 12, background: "#e0f7fa" }}>{rsi}</div>}
-      {advice && <div style={{ marginTop: 8, padding: 12, background: "#fffde7" }}>{advice}</div>}
-      <div style={{ marginTop: 32, fontSize: 14, color: "#888" }}>
-        <p>
-          <b>Indicator Breakdown (sample):</b>
-          <br />
-          RSI: 55.23 (Neutral)
-          <br />
-          MACD: 0.12 (Bullish)
-          <br />
-          Support: 64000.00
-          <br />
-          Resistance: 67000.00
-        </p>
-        <p>
-          <i>More features coming soon: AI advice, news, and trade history.</i>
-        </p>
+      {loading && <div className="boltiq-card">Loading...</div>}
+      {result && <div className="boltiq-card">{result}</div>}
+      {rsi && <div className="boltiq-card">{rsi}</div>}
+      {advice && <div className="boltiq-card">{advice}</div>}
+      <div className="boltiq-card" style={{ background: "#e3f2fd", marginTop: 24 }}>
+        <b>Indicator Breakdown (sample):</b>
+        <br />
+        RSI: 55.23 (Neutral)
+        <br />
+        MACD: 0.12 (Bullish)
+        <br />
+        Support: 64000.00
+        <br />
+        Resistance: 67000.00
       </div>
-    </main>
+      <div className="boltiq-footer">
+        &copy; {new Date().getFullYear()} BoltiqTrade &mdash; Powered by Python, Next.js, and OpenAI
+      </div>
+    </div>
   );
 }
