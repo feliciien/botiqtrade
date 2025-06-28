@@ -18,6 +18,7 @@ import plotly.graph_objects as go
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import json
+import threading
 
 # Load environment variables
 load_dotenv()
@@ -28,10 +29,14 @@ class TradingAssistant:
             root.destroy()
             root = tkdnd.Tk()
         self.root = root
-        self.root.title("EUR/USD Trading Assistant 🤖💰")
+        self.root.title("Trading Assistant 🤖💰")
         
         # Initialize _after_id
         self._after_id = None
+
+        # Supported symbols
+        self.symbols = ['EUR/USD', 'BTC/USD']
+        self.selected_symbol = tk.StringVar(value=self.symbols[0])
         
         # Load user preferences
         self.load_preferences()
@@ -226,6 +231,12 @@ class TradingAssistant:
             ttk.Label(key_frame, text="ExchangeRate API Key:").grid(row=1, column=0, padx=5)
             self.exchangerate_entry = ttk.Entry(key_frame, show="*")
             self.exchangerate_entry.grid(row=1, column=1, sticky='ew', padx=5)
+
+        # Symbol selection dropdown
+        ttk.Label(key_frame, text="Symbol:").grid(row=2, column=0, padx=5)
+        symbol_combo = ttk.Combobox(key_frame, textvariable=self.selected_symbol, values=self.symbols, state='readonly', width=10)
+        symbol_combo.grid(row=2, column=1, sticky='ew', padx=5)
+        symbol_combo.bind('<<ComboboxSelected>>', lambda e: self.update_market_data())
         
         current_row += 1
         
@@ -244,7 +255,7 @@ class TradingAssistant:
         self.macd_label.grid(row=0, column=2, padx=20)
         
         # Add refresh button
-        refresh_btn = ttk.Button(market_frame, text="⟳", 
+        refresh_btn = ttk.Button(market_frame, text="⟳",
                                command=self.update_market_data,
                                style='Accent.TButton',
                                width=3)
@@ -412,7 +423,7 @@ class TradingAssistant:
             if 'rates' not in data:
                 error_msg = data.get('error', 'Unknown error')
                 raise Exception(f"API Error: {error_msg}")
-                
+            
             current_rate = data['rates']['USD']
             
             # Create simulated price data for technical analysis
@@ -426,12 +437,51 @@ class TradingAssistant:
                 'timestamp': timestamps
             }).set_index('timestamp').sort_index()
             
-            self.price_history = df
             return df
             
         except Exception as e:
             error_msg = str(e)
             # Show error in GUI
+            messagebox.showerror("API Error", error_msg)
+            self.status_bar.config(text=f"Error: {error_msg}")
+            return pd.DataFrame()
+
+    def get_btcusd_price(self):
+        """Fetch BTC/USD price data from Binance public API and simulate short-term data"""
+        try:
+            url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
+            try:
+                r = requests.get(url, timeout=10)
+                data = r.json()
+            except requests.exceptions.ConnectionError as e:
+                raise Exception("Failed to connect to Binance API. Please check your internet connection.") from e
+            except requests.exceptions.Timeout:
+                raise Exception("Connection to Binance API timed out. Please try again.") from e
+            except requests.exceptions.RequestException as e:
+                raise Exception(f"Error connecting to Binance API: {str(e)}") from e
+
+            if 'price' not in data:
+                # Log the response for debugging
+                print("Binance API response:", data)
+                messagebox.showerror("API Error", f"Could not fetch BTC/USD price. API response: {data}")
+                raise Exception(f"API Error: Could not fetch BTC/USD price. API response: {data}")
+
+            current_rate = float(data['price'])
+
+            # Create simulated price data for technical analysis
+            timestamps = [datetime.now() - timedelta(minutes=5*i) for i in range(100)]
+            noise = np.random.normal(0, 0.002, 100)  # Slightly larger variation for BTC
+            prices = [current_rate * (1 + n) for n in noise]
+
+            df = pd.DataFrame({
+                'close': prices,
+                'timestamp': timestamps
+            }).set_index('timestamp').sort_index()
+
+            return df
+
+        except Exception as e:
+            error_msg = str(e)
             messagebox.showerror("API Error", error_msg)
             self.status_bar.config(text=f"Error: {error_msg}")
             return pd.DataFrame()
@@ -446,50 +496,137 @@ class TradingAssistant:
 
     def predict_next_price(self, df, window=20):
         """
-        Improved swing trade prediction using RandomForestRegressor and technical indicators.
-        Features: time index, RSI, MACD, SMA.
-        Returns the predicted price or None if not enough data.
+        Adaptive prediction: runs a quick backtest to optimize window/model params for recent data.
+        Returns (predicted_price, signal_quality) where signal_quality is 'strong', 'weak', or 'none'.
         """
-        if df.empty or len(df) < window + 10:
-            # Not enough data for indicators, fallback to linear regression
-            if df.empty or len(df) < window:
-                return None
-            y = df['close'].tail(window).values
-            X = np.arange(window).reshape(-1, 1)
-            from sklearn.linear_model import LinearRegression
-            model = LinearRegression()
-            model.fit(X, y)
-            next_time = np.array([[window]])
-            next_price = model.predict(next_time)[0]
-            return float(next_price)
+        import warnings
+        warnings.filterwarnings("ignore")
+        if df.empty or len(df) < 40:
+            return None, 'none'
 
-        # Compute indicators
-        closes = df['close'].tail(window + 10)  # More data for indicators
+        closes = df['close']
+        best_score = float('inf')
+        best_params = {'window': window, 'n_estimators': 300, 'max_depth': 12}
+        # Try several window sizes and model params
+        for test_window in [15, 20, 25]:
+            for n_estimators in [200, 300]:
+                for max_depth in [8, 12]:
+                    if len(closes) < test_window + 20:
+                        continue
+                    # Prepare features for backtest
+                    closes_bt = closes.tail(test_window + 20)
+                    rsi_series = RSIIndicator(closes_bt).rsi()
+                    macd_series = MACD(closes_bt).macd_diff()
+                    sma_series = closes_bt.rolling(window=5).mean()
+                    ema_9 = closes_bt.ewm(span=9, adjust=False).mean()
+                    ema_21 = closes_bt.ewm(span=21, adjust=False).mean()
+                    try:
+                        from ta.trend import ADXIndicator
+                        adx_series = ADXIndicator(high=closes_bt, low=closes_bt, close=closes_bt, window=14).adx()
+                    except Exception:
+                        adx_series = pd.Series([0]*len(closes_bt), index=closes_bt.index)
+                    try:
+                        from ta.momentum import StochasticOscillator
+                        stoch_k = StochasticOscillator(high=closes_bt, low=closes_bt, close=closes_bt, window=14).stoch()
+                    except Exception:
+                        stoch_k = pd.Series([0]*len(closes_bt), index=closes_bt.index)
+                    try:
+                        from ta.trend import CCIIndicator
+                        cci_series = CCIIndicator(high=closes_bt, low=closes_bt, close=closes_bt, window=14).cci()
+                    except Exception:
+                        cci_series = pd.Series([0]*len(closes_bt), index=closes_bt.index)
+                    bb = BollingerBands(closes_bt, window=5)
+                    bb_middle = bb.bollinger_mavg()
+                    bb_upper = bb.bollinger_hband()
+                    bb_lower = bb.bollinger_lband()
+                    atr = AverageTrueRange(high=closes_bt, low=closes_bt, close=closes_bt, window=5).average_true_range()
+                    returns_1 = closes_bt.pct_change(1)
+                    returns_2 = closes_bt.pct_change(2)
+                    returns_3 = closes_bt.pct_change(3)
+                    features_df = pd.DataFrame({
+                        'close': closes_bt.values,
+                        'rsi': rsi_series.values,
+                        'macd': macd_series.values,
+                        'sma': sma_series.values,
+                        'ema9': ema_9.values,
+                        'ema21': ema_21.values,
+                        'adx': adx_series.values,
+                        'stoch_k': stoch_k.values,
+                        'cci': cci_series.values,
+                        'bb_middle': bb_middle.values,
+                        'bb_upper': bb_upper.values,
+                        'bb_lower': bb_lower.values,
+                        'atr': atr.values,
+                        'ret1': returns_1.values,
+                        'ret2': returns_2.values,
+                        'ret3': returns_3.values,
+                        'time': np.arange(len(closes_bt))
+                    }).dropna()
+                    if len(features_df) < test_window:
+                        continue
+                    feature_cols = [
+                        'time', 'rsi', 'macd', 'sma', 'ema9', 'ema21', 'adx', 'stoch_k', 'cci',
+                        'bb_middle', 'bb_upper', 'bb_lower', 'atr', 'ret1', 'ret2', 'ret3'
+                    ]
+                    X = features_df[feature_cols].iloc[:-1].values
+                    y = features_df['close'].iloc[1:].values
+                    from sklearn.ensemble import RandomForestRegressor
+                    rf = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+                    rf.fit(X, y)
+                    from sklearn.linear_model import LinearRegression
+                    lr = LinearRegression()
+                    lr.fit(X, y)
+                    rf_pred = rf.predict(X)
+                    lr_pred = lr.predict(X)
+                    avg_pred = (rf_pred + lr_pred) / 2
+                    score = np.mean(np.abs(avg_pred - y))  # MAE
+                    if score < best_score:
+                        best_score = score
+                        best_params = {'window': test_window, 'n_estimators': n_estimators, 'max_depth': max_depth}
+
+        # Use best params for live prediction
+        window = best_params['window']
+        n_estimators = best_params['n_estimators']
+        max_depth = best_params['max_depth']
+        closes = df['close'].tail(window + 15)
         rsi_series = RSIIndicator(closes).rsi()
         macd_series = MACD(closes).macd_diff()
         sma_series = closes.rolling(window=5).mean()
-
-        # Bollinger Bands
+        ema_9 = closes.ewm(span=9, adjust=False).mean()
+        ema_21 = closes.ewm(span=21, adjust=False).mean()
+        try:
+            from ta.trend import ADXIndicator
+            adx_series = ADXIndicator(high=closes, low=closes, close=closes, window=14).adx()
+        except Exception:
+            adx_series = pd.Series([0]*len(closes), index=closes.index)
+        try:
+            from ta.momentum import StochasticOscillator
+            stoch_k = StochasticOscillator(high=closes, low=closes, close=closes, window=14).stoch()
+        except Exception:
+            stoch_k = pd.Series([0]*len(closes), index=closes.index)
+        try:
+            from ta.trend import CCIIndicator
+            cci_series = CCIIndicator(high=closes, low=closes, close=closes, window=14).cci()
+        except Exception:
+            cci_series = pd.Series([0]*len(closes), index=closes.index)
         bb = BollingerBands(closes, window=5)
         bb_middle = bb.bollinger_mavg()
         bb_upper = bb.bollinger_hband()
         bb_lower = bb.bollinger_lband()
-
-        # ATR (requires high, low, close)
-        # For simulated data, use close as high/low for simplicity
         atr = AverageTrueRange(high=closes, low=closes, close=closes, window=5).average_true_range()
-
-        # Lagged returns
         returns_1 = closes.pct_change(1)
         returns_2 = closes.pct_change(2)
         returns_3 = closes.pct_change(3)
-
-        # Drop initial NaNs
         features_df = pd.DataFrame({
             'close': closes.values,
             'rsi': rsi_series.values,
             'macd': macd_series.values,
             'sma': sma_series.values,
+            'ema9': ema_9.values,
+            'ema21': ema_21.values,
+            'adx': adx_series.values,
+            'stoch_k': stoch_k.values,
+            'cci': cci_series.values,
             'bb_middle': bb_middle.values,
             'bb_upper': bb_upper.values,
             'bb_lower': bb_lower.values,
@@ -499,45 +636,59 @@ class TradingAssistant:
             'ret3': returns_3.values,
             'time': np.arange(len(closes))
         }).dropna()
-
         if len(features_df) < window:
-            return None
-
-        # Prepare features and target
+            return None, 'none'
         feature_cols = [
-            'time', 'rsi', 'macd', 'sma',
-            'bb_middle', 'bb_upper', 'bb_lower',
-            'atr', 'ret1', 'ret2', 'ret3'
+            'time', 'rsi', 'macd', 'sma', 'ema9', 'ema21', 'adx', 'stoch_k', 'cci',
+            'bb_middle', 'bb_upper', 'bb_lower', 'atr', 'ret1', 'ret2', 'ret3'
         ]
         X = features_df[feature_cols].iloc[:-1].values
-        y = features_df['close'].iloc[1:].values  # Predict next close
-
-        # Train model
+        y = features_df['close'].iloc[1:].values
         from sklearn.ensemble import RandomForestRegressor
-        model = RandomForestRegressor(n_estimators=200, max_depth=8, random_state=42)
-        model.fit(X, y)
-
-        # Prepare next feature row
+        rf = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+        rf.fit(X, y)
+        from sklearn.linear_model import LinearRegression
+        lr = LinearRegression()
+        lr.fit(X, y)
         last_row = features_df[feature_cols].iloc[-1].values.reshape(1, -1)
-        next_price = model.predict(last_row)[0]
-        return float(next_price)
+        rf_pred = rf.predict(last_row)[0]
+        lr_pred = lr.predict(last_row)[0]
+        avg_pred = (rf_pred + lr_pred) / 2
 
-    def build_prompt(self, user_input, price, rsi, macd, predicted_price=None):
+        adx_val = features_df['adx'].iloc[-1]
+        atr_val = features_df['atr'].iloc[-1]
+        macd_val = features_df['macd'].iloc[-1]
+        last_close = features_df['close'].iloc[-1]
+        pred_move = abs(avg_pred - last_close)
+        pip_size = 0.0001 if last_close < 100 else 1.0
+        min_move_pips = 5 if last_close < 100 else 10
+
+        if adx_val > 22 and atr_val > 0.0007 * closes.mean() and abs(macd_val) > 0.0005 and pred_move / pip_size > min_move_pips:
+            return float(avg_pred), 'strong'
+        elif adx_val > 18 and atr_val > 0.0003 * closes.mean() and pred_move / pip_size > 2:
+            return float(avg_pred), 'weak'
+        else:
+            return float(avg_pred), 'none'
+
+    def build_prompt(self, user_input, price, rsi, macd, predicted_price=None, symbol="EUR/USD"):
         """Build the prompt for OpenAI"""
         trend = "Uptrend" if macd > 0 else "Downtrend"
         pred_str = f"\nPredicted Next Price: {predicted_price:.5f}" if predicted_price is not None else ""
-        prompt = f"""
-You are a professional forex trading assistant. Analyze EUR/USD based on the following:
-
-Current Price: {price:.5f}
-RSI: {rsi:.2f}
-MACD: {macd:.2f}
-Trend: {trend}{pred_str}
-
-User Question: {user_input}
-
-Give clear advice (Buy, Sell, or Wait) and explain your reasoning in 1-2 lines. Include a sample trading plan (entry, stop-loss, take-profit).
-"""
+        pip_note = (
+            "For EUR/USD, 1 pip = 0.0001. For BTC/USD, 1 pip = 1.0. "
+            "When giving entry, stop-loss, and take-profit, also provide the stop-loss and take-profit distance in pips."
+        )
+        prompt = (
+            f"You are a professional trading assistant. Analyze {symbol} based on the following:\n"
+            f"\nCurrent Price: {price:.5f}"
+            f"\nRSI: {rsi:.2f}"
+            f"\nMACD: {macd:.2f}"
+            f"\nTrend: {trend}{pred_str}"
+            f"\n\nUser Question: {user_input}"
+            f"\n\nGive clear advice (Buy, Sell, or Wait) and explain your reasoning in 1-2 lines."
+            f"\nInclude a sample trading plan (entry, stop-loss, take-profit), and for stop-loss and take-profit, also provide the distance in pips. {pip_note}"
+            f"\n\nAfter your advice, add a brief explanation of which indicators or patterns (e.g., RSI, MACD, support/resistance, price action) were most influential in your recommendation, and why."
+        )
         return prompt
 
     def get_openai_response(self, prompt):
@@ -612,7 +763,8 @@ Give clear advice (Buy, Sell, or Wait) and explain your reasoning in 1-2 lines. 
         if not hasattr(self, 'timeframe_var'):
             self.setup_chart_controls()
         
-        self.ax.set_title('EUR/USD Price History')
+        symbol = self.selected_symbol.get() if hasattr(self, 'selected_symbol') else "EUR/USD"
+        self.ax.set_title(f'{symbol} Price History')
         self.ax.set_xlabel('Time')
         self.ax.set_ylabel('Price')
         self.ax.grid(True, alpha=0.3)
@@ -675,74 +827,201 @@ Give clear advice (Buy, Sell, or Wait) and explain your reasoning in 1-2 lines. 
         self.save_preferences()
         self.update_chart()
         
-    def update_market_data(self):
-        """Update market data periodically"""
-        try:
-            df = self.get_eurusd_price()
-            if not df.empty:
-                last_price = df['close'].iloc[-1]
-                rsi, macd = self.compute_indicators(df)
-                predicted_price = self.predict_next_price(df)
-                
-                # Update labels with colors based on values
-                self.price_label.config(
-                    text=f"EUR/USD: {last_price:.5f}",
-                    foreground=self.colors['text']
-                )
-                
-                self.rsi_label.config(
-                    text=f"RSI: {rsi:.2f}",
-                    foreground=self.colors['danger'] if rsi > 70 or rsi < 30 else self.colors['text']
-                )
-                
-                self.macd_label.config(
-                    text=f"MACD: {macd:.2f}",
-                    foreground=self.colors['success'] if macd > 0 else self.colors['danger']
-                )
+    import threading
 
-                # Show predicted price in status bar
-                if predicted_price is not None:
-                    self.status_bar.config(
-                        text=f"Last updated: {datetime.now().strftime('%H:%M:%S')} | Predicted Next Price: {predicted_price:.5f}"
-                    )
+    def update_market_data(self):
+        """Update market data periodically using a background thread"""
+        def fetch_and_update():
+            try:
+                symbol = self.selected_symbol.get()
+                if symbol == 'EUR/USD':
+                    df = self.get_eurusd_price()
+                    symbol_label = "EUR/USD"
+                elif symbol == 'BTC/USD':
+                    df = self.get_btcusd_price()
+                    symbol_label = "BTC/USD"
                 else:
-                    self.status_bar.config(
-                        text=f"Last updated: {datetime.now().strftime('%H:%M:%S')}"
-                    )
-                
-                # Update chart
-                self.update_chart()
-        except Exception as e:
-            self.status_bar.config(text=f"Error updating market data: {str(e)}")
-            
-        # Schedule next update in 60 seconds
-        self._after_id = self.root.after(60000, self.update_market_data)
+                    df = pd.DataFrame()
+                    symbol_label = symbol
+
+                def update_ui():
+                    if not df.empty:
+                        self.price_history = df
+                        last_price = df['close'].iloc[-1]
+                        rsi, macd = self.compute_indicators(df)
+                        predicted_price_tuple = self.predict_next_price(df)
+                        if isinstance(predicted_price_tuple, tuple):
+                            predicted_price, _ = predicted_price_tuple
+                        else:
+                            predicted_price = predicted_price_tuple
+
+                        # Update labels with colors based on values
+                        self.price_label.config(
+                            text=f"{symbol_label}: {last_price:.5f}",
+                            foreground=self.colors['text']
+                        )
+                        self.rsi_label.config(
+                            text=f"RSI: {rsi:.2f}",
+                            foreground=self.colors['danger'] if rsi > 70 or rsi < 30 else self.colors['text']
+                        )
+                        self.macd_label.config(
+                            text=f"MACD: {macd:.2f}",
+                            foreground=self.colors['success'] if macd > 0 else self.colors['danger']
+                        )
+                        # Show predicted price in status bar
+                        if predicted_price is not None:
+                            self.status_bar.config(
+                                text=f"Last updated: {datetime.now().strftime('%H:%M:%S')} | Predicted Next Price: {predicted_price:.5f}"
+                            )
+                        else:
+                            self.status_bar.config(
+                                text=f"Last updated: {datetime.now().strftime('%H:%M:%S')}"
+                            )
+                        # Update chart
+                        self.update_chart()
+                self.root.after(0, update_ui)
+            except Exception as e:
+                self.root.after(0, lambda: self.status_bar.config(text=f"Error updating market data: {str(e)}"))
+            # Schedule next update in 60 seconds
+            self._after_id = self.root.after(60000, self.update_market_data)
+
+        threading.Thread(target=fetch_and_update, daemon=True).start()
 
     def on_submit(self, event=None):
         """Handle question submission"""
         question = self.question_entry.get()
         if not question:
             return
-            
+
+        # Check for direct price queries before running AI pipeline
+        import re
+        q = question.strip().lower()
+        btc_patterns = [
+            r"\b(btc|bitcoin)\b.*\b(price|current price|quote|value)\b",
+            r"\b(price|current price|quote|value)\b.*\b(btc|bitcoin)\b"
+        ]
+        eurusd_patterns = [
+            r"\b(eur\/usd|eurusd)\b.*\b(price|current price|quote|value)\b",
+            r"\b(price|current price|quote|value)\b.*\b(eur\/usd|eurusd)\b"
+        ]
+        matched_btc = any(re.search(p, q) for p in btc_patterns)
+        matched_eurusd = any(re.search(p, q) for p in eurusd_patterns)
+
+        if matched_btc:
+            self.show_loading("Fetching BTC/USD price...")
+            try:
+                df = self.get_btcusd_price()
+                if not df.empty:
+                    last_price = df['close'].iloc[-1]
+                    self.response_text.delete(1.0, tk.END)
+                    self.response_text.insert(tk.END, f"Current BTC/USD price: {last_price:.2f} USD")
+                else:
+                    self.response_text.delete(1.0, tk.END)
+                    self.response_text.insert(tk.END, "Could not fetch BTC/USD price at this time.")
+            finally:
+                self.hide_loading()
+                self.status_bar.config(text="Ready")
+            return
+
+        if matched_eurusd:
+            self.show_loading("Fetching EUR/USD price...")
+            try:
+                df = self.get_eurusd_price()
+                if not df.empty:
+                    last_price = df['close'].iloc[-1]
+                    self.response_text.delete(1.0, tk.END)
+                    self.response_text.insert(tk.END, f"Current EUR/USD price: {last_price:.5f} USD")
+                else:
+                    self.response_text.delete(1.0, tk.END)
+                    self.response_text.insert(tk.END, "Could not fetch EUR/USD price at this time.")
+            finally:
+                self.hide_loading()
+                self.status_bar.config(text="Ready")
+            return
+
         self.show_loading("Getting trading advice...")
         self.status_bar.config(text="Getting trading advice...")
         self.root.update()
         
         try:
-            df = self.get_eurusd_price()
+            symbol = self.selected_symbol.get()
+            if symbol == 'EUR/USD':
+                df = self.get_eurusd_price()
+            elif symbol == 'BTC/USD':
+                df = self.get_btcusd_price()
+            else:
+                df = pd.DataFrame()
+
             if not df.empty:
                 last_price = df['close'].iloc[-1]
                 rsi, macd = self.compute_indicators(df)
-                predicted_price = self.predict_next_price(df)
-                
-                prompt = self.build_prompt(question, last_price, rsi, macd, predicted_price)
+                predicted_price_tuple = self.predict_next_price(df)
+                if isinstance(predicted_price_tuple, tuple):
+                    predicted_price, signal_quality = predicted_price_tuple
+                else:
+                    predicted_price, signal_quality = predicted_price_tuple, 'weak'
+
+                # If signal is 'none', warn user and suggest no trade
+                if signal_quality == 'none':
+                    self.response_text.delete(1.0, tk.END)
+                    # Compute support/resistance levels for actionable alerts
+                    support = None
+                    resistance = None
+                    if not df.empty and len(df) > 20:
+                        closes = df['close'].tail(50)
+                        support = closes.min()
+                        resistance = closes.max()
+                    symbol_display = symbol if symbol else "the asset"
+                    alert_line = ""
+                    if support and resistance:
+                        alert_line = (
+                            f"• Set alerts for {symbol_display} crossing above resistance (${resistance:.2f}) "
+                            f"or below support (${support:.2f}).\n"
+                        )
+                    else:
+                        alert_line = "• Set alerts for key support/resistance levels based on recent price action.\n"
+                    self.response_text.insert(
+                        tk.END,
+                        "⚠️ No strong trading signal detected. Market is likely choppy or trend is weak.\n"
+                        "Actionable advice:\n"
+                        "• Review higher timeframes for clarity.\n"
+                        "• Avoid overtrading in choppy conditions.\n"
+                        f"{alert_line}"
+                        "• Consider reducing position size or staying in cash until a clear trend emerges.\n"
+                    )
+                    return
+
+                prompt = self.build_prompt(question, last_price, rsi, macd, predicted_price, symbol=symbol)
                 advice = self.get_openai_response(prompt)
-                
+
+                # Try to extract entry, SL, TP from the advice and append pip values if not present
+                pip_size = 0.0001 if symbol == 'EUR/USD' else 1.0
+                entry = None
+                sl = None
+                tp = None
+                entry_match = re.search(r'Entry[:\s]*([\d\.]+)', advice)
+                sl_match = re.search(r'Stop[- ]?Loss[:\s]*([\d\.]+)', advice, re.IGNORECASE)
+                tp_match = re.search(r'Take[- ]?Profit[:\s]*([\d\.]+)', advice, re.IGNORECASE)
+                if entry_match:
+                    entry = float(entry_match.group(1))
+                if sl_match:
+                    sl = float(sl_match.group(1))
+                if tp_match:
+                    tp = float(tp_match.group(1))
+                pip_info = ""
+                if entry is not None and sl is not None:
+                    sl_pips = abs(entry - sl) / pip_size
+                    pip_info += f"\nStop-Loss Distance: {sl_pips:.1f} pips"
+                if entry is not None and tp is not None:
+                    tp_pips = abs(tp - entry) / pip_size
+                    pip_info += f"\nTake-Profit Distance: {tp_pips:.1f} pips"
+
                 self.response_text.delete(1.0, tk.END)
                 if predicted_price is not None:
-                    self.response_text.insert(tk.END, f"Model Predicted Next Price: {predicted_price:.5f}\n\n")
+                    self.response_text.insert(tk.END, f"Model Predicted Next Price: {predicted_price:.5f} ({signal_quality.upper()} SIGNAL)\n\n")
                 self.response_text.insert(tk.END, advice)
-                
+                if pip_info:
+                    self.response_text.insert(tk.END, f"\n{pip_info}\n")
         finally:
             self.hide_loading()
             self.status_bar.config(text="Ready")
