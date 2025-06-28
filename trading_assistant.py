@@ -893,7 +893,7 @@ class TradingAssistant:
         if not question:
             return
 
-        # Check for direct price queries before running AI pipeline
+        # Check for direct price and indicator queries before running AI pipeline
         import re
         q = question.strip().lower()
         btc_patterns = [
@@ -904,8 +904,17 @@ class TradingAssistant:
             r"\b(eur\/usd|eurusd)\b.*\b(price|current price|quote|value)\b",
             r"\b(price|current price|quote|value)\b.*\b(eur\/usd|eurusd)\b"
         ]
+        rsi_patterns = [
+            r"\bwhat\s+is\s+the\s+rsi\b",
+            r"\bcurrent\s+rsi\b",
+            r"\brsi\s+for\b",
+            r"\brsi\s+of\b",
+            r"\brsi\b.*\b(btc|eur|usd|eurusd|btc\/usd|eur\/usd|bitcoin)\b",
+            r"\b(btc|eur|usd|eurusd|btc\/usd|eur\/usd|bitcoin)\b.*\brsi\b"
+        ]
         matched_btc = any(re.search(p, q) for p in btc_patterns)
         matched_eurusd = any(re.search(p, q) for p in eurusd_patterns)
+        matched_rsi = any(re.search(p, q) for p in rsi_patterns)
 
         if matched_btc:
             self.show_loading("Fetching BTC/USD price...")
@@ -934,6 +943,28 @@ class TradingAssistant:
                 else:
                     self.response_text.delete(1.0, tk.END)
                     self.response_text.insert(tk.END, "Could not fetch EUR/USD price at this time.")
+            finally:
+                self.hide_loading()
+                self.status_bar.config(text="Ready")
+            return
+
+        if matched_rsi:
+            self.show_loading("Fetching RSI value...")
+            try:
+                # Determine which symbol the user is asking about
+                if "btc" in q or "bitcoin" in q:
+                    df = self.get_btcusd_price()
+                    symbol = "BTC/USD"
+                else:
+                    df = self.get_eurusd_price()
+                    symbol = "EUR/USD"
+                if not df.empty:
+                    rsi = RSIIndicator(df['close']).rsi().iloc[-1]
+                    self.response_text.delete(1.0, tk.END)
+                    self.response_text.insert(tk.END, f"Current RSI for {symbol}: {rsi:.2f}")
+                else:
+                    self.response_text.delete(1.0, tk.END)
+                    self.response_text.insert(tk.END, f"Could not fetch data to compute RSI for {symbol}.")
             finally:
                 self.hide_loading()
                 self.status_bar.config(text="Ready")
@@ -1022,6 +1053,30 @@ class TradingAssistant:
                 self.response_text.insert(tk.END, advice)
                 if pip_info:
                     self.response_text.insert(tk.END, f"\n{pip_info}\n")
+
+                # --- Explainable AI: Visual Indicator Breakdown ---
+                breakdown = "\n\n--- Indicator Breakdown ---\n"
+                breakdown += f"RSI: {rsi:.2f} "
+                if rsi > 70:
+                    breakdown += "(Overbought)\n"
+                elif rsi < 30:
+                    breakdown += "(Oversold)\n"
+                else:
+                    breakdown += "(Neutral)\n"
+                breakdown += f"MACD: {macd:.2f} "
+                if macd > 0:
+                    breakdown += "(Bullish)\n"
+                elif macd < 0:
+                    breakdown += "(Bearish)\n"
+                else:
+                    breakdown += "(Neutral)\n"
+                # Support/Resistance from last 50 closes
+                closes = df['close'].tail(50)
+                support = closes.min()
+                resistance = closes.max()
+                breakdown += f"Support: {support:.2f}\n"
+                breakdown += f"Resistance: {resistance:.2f}\n"
+                self.response_text.insert(tk.END, breakdown)
         finally:
             self.hide_loading()
             self.status_bar.config(text="Ready")
