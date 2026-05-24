@@ -1,103 +1,189 @@
 import Image from "next/image";
+import Link from "next/link";
+import {
+  operatingPrinciples,
+  platformModules,
+  proofPoints,
+  riskControls,
+  validationStages,
+} from "./site-data";
+import { Band, PageShell, SectionHeading, TextCard } from "@/components/site-shell";
 
 export default function Home() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+    <PageShell>
+      <section className="relative min-h-[88vh] overflow-hidden bg-[#07100d] px-5 pb-16 pt-28 text-white sm:px-8">
         <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
+          src="/assets/boltiq-command-center.png"
+          alt="BoltIQ command center interface for MT5 execution, risk guardrails, research, AI committee, mobile monitoring, and owner dashboard modules."
+          fill
           priority
+          className="object-cover opacity-44"
+          sizes="100vw"
         />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        <div className="absolute inset-0 bg-[#07100d]/72" />
+        <div className="relative mx-auto flex min-h-[72vh] max-w-7xl flex-col justify-end">
+          <p className="mb-5 max-w-max border border-emerald-200/30 px-3 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-emerald-100">
+            Official BoltIQ Trade website
+          </p>
+          <h1 className="max-w-5xl text-5xl font-semibold leading-[0.98] tracking-normal sm:text-7xl lg:text-8xl">
+            Trading operations infrastructure, not a black-box bot.
+          </h1>
+          <p className="mt-7 max-w-3xl text-lg leading-8 text-stone-100 sm:text-xl">
+            BoltIQ connects MT5 execution, prop-firm risk governance, audit trails,
+            research validation, AI-assisted context, and owner monitoring into one
+            command layer.
+          </p>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/partners"
+              className="rounded-full bg-emerald-300 px-6 py-3 text-center text-sm font-semibold text-stone-950 transition hover:bg-emerald-200"
+            >
+              Partner with BoltIQ
+            </Link>
+            <Link
+              href="/investors"
+              className="rounded-full border border-white/35 px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              Request investor brief
+            </Link>
+            <Link
+              href="/research-validation"
+              className="rounded-full border border-white/20 px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              View research governance
+            </Link>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      </section>
+
+      <Band>
+        <div className="grid gap-4 md:grid-cols-4">
+          {operatingPrinciples.map((item) => (
+            <div
+              key={item}
+              className="rounded-lg border border-stone-200 bg-white p-5 text-sm font-semibold text-stone-900 shadow-sm"
+            >
+              {item}
+            </div>
+          ))}
+        </div>
+      </Band>
+
+      <Band>
+        <div id="platform" className="scroll-mt-28">
+          <SectionHeading
+            eyebrow="Platform"
+            title="One command center for the trading operation."
+            body="Execution, risk, research, mobile monitoring, and owner decisions are connected into a single operating layer designed for visibility before autonomy."
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
+          <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {platformModules.map((module) => (
+              <TextCard
+                key={module.title}
+                kicker={module.kicker}
+                title={module.title}
+                body={module.body}
+              />
+            ))}
+          </div>
+        </div>
+      </Band>
+
+      <Band tone="dark">
+        <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <SectionHeading
+            eyebrow="Proof, not promises"
+            title="Research-first growth, capital-first execution."
+            body="BoltIQ is designed to improve through evidence. Best-case backtests are not treated as deployment proof unless the family survives controlled validation and risk review."
+            tone="dark"
           />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {proofPoints.map((point) => (
+              <article
+                key={point.label}
+                className="rounded-lg border border-white/12 bg-white/[0.06] p-6"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200">
+                  {point.label}
+                </p>
+                <div className="mt-4 text-3xl font-semibold text-white">{point.value}</div>
+                <p className="mt-3 text-sm leading-6 text-stone-300">{point.detail}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </Band>
+
+      <Band>
+        <div className="grid gap-12 lg:grid-cols-[1fr_1fr]">
+          <div>
+            <SectionHeading
+              eyebrow="Risk governance"
+              title="Designed to stop rule breaches before chasing returns."
+              body="The live posture favors hard locks, exposure caps, and operator visibility over uncontrolled scaling."
+            />
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              {riskControls.map((control) => (
+                <div
+                  key={control}
+                  className="border-l-2 border-emerald-600 bg-white px-4 py-3 text-sm font-medium text-stone-800 shadow-sm"
+                >
+                  {control}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <SectionHeading
+              eyebrow="Validation workflow"
+              title="A candidate earns more runtime only after surviving the previous gate."
+              body="The system explicitly records why a family advances, holds, or gets buried."
+            />
+            <div className="mt-8 space-y-4">
+              {validationStages.map((stage) => (
+                <article key={stage.stage} className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+                  <h3 className="text-lg font-semibold text-stone-950">{stage.stage}</h3>
+                  <p className="mt-2 text-sm font-medium text-emerald-800">{stage.decision}</p>
+                  <p className="mt-2 text-sm leading-6 text-stone-600">{stage.evidence}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Band>
+
+      <Band tone="dark">
+        <div className="grid gap-8 lg:grid-cols-[1fr_0.8fr] lg:items-center">
+          <div>
+            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.24em] text-emerald-200">
+              Founder-led build
+            </p>
+            <h2 className="max-w-4xl text-4xl font-semibold tracking-normal text-white sm:text-6xl">
+              Build the future of auditable trading infrastructure.
+            </h2>
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-stone-300">
+              BoltIQ is open to technical partnerships, audit and reporting pilots,
+              investor conversations, and strategic product discussions where measurable
+              value and clear boundaries come first.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+            <Link
+              className="rounded-full bg-emerald-300 px-6 py-3 text-center text-sm font-semibold text-stone-950 transition hover:bg-emerald-200"
+              href="/partners"
+            >
+              Start a technical-fit pilot
+            </Link>
+            <Link
+              className="rounded-full border border-white/25 px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-white/10"
+              href="/investors"
+            >
+              Request the investor data room
+            </Link>
+          </div>
+        </div>
+      </Band>
+    </PageShell>
   );
 }

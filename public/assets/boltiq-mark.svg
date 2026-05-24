@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">BoltIQ Trade mark</title>
+  <desc id="desc">A gold and teal trading systems mark with a bolt inside a rounded square.</desc>
+  <defs>
+    <linearGradient id="bg" x1="76" y1="62" x2="434" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#122025"/>
+      <stop offset="1" stop-color="#05090B"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="170" y1="92" x2="365" y2="430" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F0CF78"/>
+      <stop offset="1" stop-color="#33D5CB"/>
+    </linearGradient>
+  </defs>
+  <rect x="52" y="52" width="408" height="408" rx="64" fill="url(#bg)" stroke="#D9B968" stroke-width="18"/>
+  <path d="M292 84 136 292h102l-42 136 184-228H268l24-116Z" fill="url(#bolt)"/>
+  <path d="M117 382h278" stroke="#33D5CB" stroke-width="18" stroke-linecap="round" opacity=".34"/>
+</svg>
