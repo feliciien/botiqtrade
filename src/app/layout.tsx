@@ -20,14 +20,14 @@ export const metadata: Metadata = {
     template: "%s | BoltIQ Trade",
   },
   description:
-    "BoltIQ Trade is a risk-first trading operations command center for MT5 execution, prop-firm governance, audit trails, research validation, and owner monitoring.",
+    "BoltIQ Trade is the research and operations portal for BoltIQ. The primary MT5 engineering and software website is boltiqmarkets.com. No brokerage, customer deposits or custody.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
     title: "BoltIQ Trade - Trading Operations Command Center",
     description:
-      "Risk governance, audit trails, research validation, and owner-level monitoring for systematic MT5 operations.",
+      "BoltIQ Trade research and operations portal. Primary MT5 engineering and software website: boltiqmarkets.com. No customer deposits or custody.",
     url: "https://boltiqtrade.vercel.app",
     siteName: "BoltIQ Trade",
     images: [
