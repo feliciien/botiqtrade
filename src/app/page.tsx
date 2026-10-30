@@ -24,7 +24,7 @@ export default function Home() {
         <div className="absolute inset-0 bg-[#07100d]/72" />
         <div className="relative mx-auto flex min-h-[72vh] max-w-7xl flex-col justify-end">
           <p className="mb-5 max-w-max border border-emerald-200/30 px-3 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-emerald-100">
-            Official BoltIQ Trade website
+            BoltIQ Trade research portal
           </p>
           <h1 className="max-w-5xl text-5xl font-semibold leading-[0.98] tracking-normal sm:text-7xl lg:text-8xl">
             Trading operations infrastructure, not a black-box bot.
@@ -33,6 +33,13 @@ export default function Home() {
             BoltIQ connects MT5 execution, prop-firm risk governance, audit trails,
             research validation, AI-assisted context, and owner monitoring into one
             command layer.
+          </p>
+          <p className="mt-5 max-w-3xl text-base leading-7 text-emerald-100">
+            Official BoltIQ Markets website:{" "}
+            <a href="https://boltiqmarkets.com/" className="font-semibold underline underline-offset-4 hover:text-white">
+              boltiqmarkets.com
+            </a>
+            {" "}— browse MT5 products, developer services and research demos. This research portal is not a broker and does not accept customer trading deposits.
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Link
