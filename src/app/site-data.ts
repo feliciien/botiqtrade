@@ -1,4 +1,5 @@
 export const navItems = [
+  { label: "BoltIQ Markets ↗", href: "https://boltiqmarkets.com/" },
   { label: "Platform", href: "/#platform" },
   { label: "Risk", href: "/risk-governance" },
   { label: "Research", href: "/research-validation" },
